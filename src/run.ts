@@ -16,7 +16,7 @@ const deployedServices = [
   "ui-auth",
   "ui-waf-log-assoc",
   "ui-src",
-]
+];
 
 // Function to update .env files using 1Password CLI
 function updateEnvFiles() {
@@ -116,11 +116,8 @@ async function run_all_locally() {
   run_fe_locally(runner);
 }
 
-async function seed_database(
-  runner: LabeledProcessRunner,
-  stage: string
-) {
-  const seedService = "data-deployment"
+async function seed_database(runner: LabeledProcessRunner, stage: string) {
+  const seedService = "data-deployment";
   await install_deps(runner, seedService);
   const seedDeployCmd = ["sls", "deploy", "--stage", stage];
   // Deploy seed service
@@ -168,8 +165,8 @@ async function cdkDeploy(options: { stage: string }) {
   const stage = options.stage;
   const runner = new LabeledProcessRunner();
   await prepare_services(runner);
-  const deployCmd =["cdk", "deploy", "-c", `stage=${stage}`, "--all"]
-  await runner.run_command_and_output("CDK deploy", deployCmd, ".");  
+  const deployCmd = ["cdk", "deploy", "-c", `stage=${stage}`, "--all"];
+  await runner.run_command_and_output("CDK deploy", deployCmd, ".");
   // Seed when flag is set to true
   if (process.env.SEED_DATABASE) {
     await seed_database(runner, stage);
