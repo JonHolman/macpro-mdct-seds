@@ -14,3 +14,4 @@ tests/cypress/videos
 tests/cypress/screenshots
 tests/cypress/downloads
 .vscode
+/.serverless
