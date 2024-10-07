@@ -14,6 +14,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "watch": "tsc -w",
     "cdk": "cdk",
     "test": "node nightwatch -c tests/nightwatch/nightwatch.conf.js",
     "smoke": "npm run test --tag smoke",
