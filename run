@@ -73,6 +73,7 @@ if [ "$UPDATE_ENV" = true ]; then
     sed -i "" -e "s/# pragma: allowlist secret//g" .env
 fi
 
+# export PATH=$PATH:./node_modules/.bin
 
 # build and run run.ts
 # tsc is configured to build what we expect in tsconfig.json
