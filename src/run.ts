@@ -172,6 +172,18 @@ async function cdkDeploy(options: { stage: string }) {
     await seed_database(runner, stage);
   }
 }
+async function cdkDestroy(options: { stage: string }) {
+  throw `TODO: destroy ${options.stage}`;
+  // const stage = options.stage;
+  // const runner = new LabeledProcessRunner();
+  // await prepare_services(runner);
+  // const deployCmd =["cdk", "deploy", "-c", `stage=${stage}`, "--all"]
+  // await runner.run_command_and_output("CDK deploy", deployCmd, ".");
+  // // Seed when flag is set to true
+  // if (process.env.SEED_DATABASE) {
+  //   await seed_database(runner, stage);
+  // }
+}
 
 async function destroy_stage(options: {
   stage: string;
@@ -229,6 +241,14 @@ yargs(process.argv.slice(2))
       stage: { type: "string", demandOption: true },
     },
     cdkDeploy
+  )
+  .command(
+    "cdkDestroy",
+    "destroy the app stage with cdk to the cloud",
+    {
+      stage: { type: "string", demandOption: true },
+    },
+    cdkDestroy
   )
   .command(
     "destroy",
