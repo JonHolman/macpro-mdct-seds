@@ -24,7 +24,10 @@ const deployedServices = [
   "ui-src",
 ];
 
-function confirmDestroyCommand(stack) {
+const project = process.env.PROJECT;
+const region = process.env.REGION_A;
+
+function confirmDestroyCommand(stack: string) {
   const orange = "\x1b[38;5;208m";
   const reset = "\x1b[0m";
 
