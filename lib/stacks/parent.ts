@@ -3,7 +3,7 @@ import { Construct } from "constructs";
 import { CloudWatchLogsResourcePolicy } from "../local-constructs/cloudwatch-logs-resource-policy";
 
 import { DeploymentConfigProperties } from "../config/deployment-config";
-// import * as Stacks from "../stacks";
+import * as Stacks from "../stacks";
 
 export class ParentStack extends cdk.Stack {
   constructor(
@@ -60,19 +60,25 @@ export class ParentStack extends cdk.Stack {
     //   stack: "uploads",
     // });
 
-    // const dataStack = new Stacks.Data(this, "data", {
-    //   ...commonProps,
-    //   stack: "data",
-    //   vpc,
-    //   privateSubnets,
-    //   brokerString: props.brokerString,
-    //   lambdaSecurityGroup: networkingStack.lambdaSecurityGroup,
-    //   topicNamespace,
-    //   indexNamespace,
-    //   devPasswordArn: props.devPasswordArn,
-    //   sharedOpenSearchDomainArn: props.sharedOpenSearchDomainArn,
-    //   sharedOpenSearchDomainEndpoint: props.sharedOpenSearchDomainEndpoint,
-    // });
+    const dataStack = new Stacks.DatabaseStack(this, "database", {
+      ...commonProps,
+      stack: "database",
+      // vpc,
+      // privateSubnets,
+      // brokerString: props.brokerString,
+      // lambdaSecurityGroup: "", //networkingStack.lambdaSecurityGroup,
+      // topicNamespace,
+      // indexNamespace,
+      // devPasswordArn: props.devPasswordArn,
+      // sharedOpenSearchDomainArn: props.sharedOpenSearchDomainArn,
+      // sharedOpenSearchDomainEndpoint: props.sharedOpenSearchDomainEndpoint,
+    });
+
+    new Stacks.ApiStack(this, "api", {
+      ...commonProps,
+      stack: "api",
+      tables: dataStack.tables,
+    });
 
     // const apiStack = new Stacks.Api(this, "api", {
     //   ...commonProps,
