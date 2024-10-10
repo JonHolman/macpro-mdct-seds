@@ -4,7 +4,7 @@ import {
   NodejsFunctionProps,
 } from "aws-cdk-lib/aws-lambda-nodejs";
 // import { join } from "path";
-import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, Stack, CfnElement } from "aws-cdk-lib";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import {
@@ -28,8 +28,6 @@ interface LambdaProps extends Partial<NodejsFunctionProps> {
   managedPolicies?: string[];
   dynamoDbTables?: string[];
   environment?: { [key: string]: string };
-
-  api?: apigateway.RestApi;
   path?: string;
   method?: string;
 }
@@ -58,8 +56,6 @@ export class Lambda extends Construct {
       policyStatements = [],
       managedPolicies = ["service-role/AWSLambdaVPCAccessExecutionRole"],
       dynamoDbTables = [],
-      environment = {},
-      api,
       path,
       method,
       ...restProps
@@ -68,6 +64,31 @@ export class Lambda extends Construct {
     this.logGroup = new LogGroup(this, `${id}LogGroup`, {
       removalPolicy: RemovalPolicy.DESTROY,
     });
+
+    const stage = this.node.tryGetContext("stage") || "dev";
+
+    // TODO: need to get broker string
+    // const { brokerString } =
+    console.log("TODO: parent:", Stack.of(this).nestedStackParent);
+
+    const environment = {
+      // BOOTSTRAP_BROKER_STRING_TLS: brokerString,
+      STAGE: stage,
+      stage,
+      ...(Stack.of(this) as ApiStack).tables.reduce(
+        (acc, table) => {
+          const currentTable = Stack.of(table)
+            .getLogicalId(table.node.defaultChild as CfnElement)
+            .slice(0, -8);
+
+          acc[`${currentTable}Name`] = table.tableName;
+          acc[`${currentTable}Arn`] = table.tableArn;
+
+          return acc;
+        },
+        {} as { [key: string]: string }
+      ),
+    };
 
     const role = new Role(this, `${id}LambdaExecutionRole`, {
       assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
@@ -101,7 +122,8 @@ export class Lambda extends Construct {
       })
     );
 
-    dynamoDbTables.forEach((tableName) => {
+    // TOOD: instead of this being one policy per table, put all of the tables in one policy in the resources key
+    (Stack.of(this) as ApiStack).tables.forEach((table) => {
       role.addToPolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
@@ -115,9 +137,7 @@ export class Lambda extends Construct {
             "dynamodb:DeleteItem",
             "dynamodb:BatchWriteItem",
           ],
-          resources: [
-            `arn:aws:dynamodb:${Stack.of(this).region}:${Stack.of(this).account}:table/${tableName}`,
-          ],
+          resources: [table.tableArn],
         })
       );
     });
@@ -139,8 +159,10 @@ export class Lambda extends Construct {
       ...restProps,
     });
 
-    if (api && path && method) {
-      const resource = api.root.resourceForPath(path);
+    if (path && method) {
+      const resource = (Stack.of(this) as ApiStack).api.root.resourceForPath(
+        path
+      );
       resource.addMethod(
         method,
         new apigateway.LambdaIntegration(this.lambda),

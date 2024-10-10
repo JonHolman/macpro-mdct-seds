@@ -17,6 +17,7 @@ interface ApiStackProps extends cdk.NestedStackProps {
 export class ApiStack extends cdk.NestedStack {
   public readonly shortStackName: string;
   public readonly tables: dynamodb.Table[];
+  public readonly api: apigateway.RestApi;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -29,44 +30,7 @@ export class ApiStack extends cdk.NestedStack {
 
     this.tables = props.tables;
 
-    const environment = {
-      stage,
-      ...this.tables.reduce(
-        (acc, table) => {
-          const currentTable = cdk.Stack.of(table)
-            .getLogicalId(table.node.defaultChild as cdk.CfnElement)
-            .slice(0, -8);
-
-          acc[`${currentTable}Name`] = table.tableName;
-          acc[`${currentTable}Arn`] = table.tableArn;
-
-          return acc;
-        },
-        {} as { [key: string]: string }
-      ),
-    };
-
-    // DynamoDB permissions
-    const dynamoDbTables = [
-      "sls-age-ranges",
-      "sls-form-answers",
-      "sls-form-questions",
-      "sls-forms",
-      "sls-state-forms",
-      "sls-states",
-      "sls-status",
-      "sls-auth-user",
-      "sls-auth-user-roles",
-      "sls-auth-user-states",
-      "sls-form-templates",
-    ];
-
-    new Lambda(this, "test", {
-      entry: "./lib/local-constructs/lambda/handler.ts",
-      dynamoDbTables,
-    });
-
-    const api = new apigateway.RestApi(this, "ApiGatewayRestApi", {
+    this.api = new apigateway.RestApi(this, "ApiGatewayRestApi", {
       restApiName: `app-api-${stage}`,
       deploy: true,
       deployOptions: {
@@ -75,20 +39,77 @@ export class ApiStack extends cdk.NestedStack {
     });
 
     // Functions
+
+    new Lambda(this, "obtainUserByEmail", {
+      entry: "services/app-api/handlers/users/post/obtainUserByEmail.js",
+      path: "/users/get/email",
+      method: "POST",
+    });
+
+    new Lambda(this, "createUser", {
+      entry: "services/app-api/handlers/users/post/createUser.js",
+      path: "/users/add",
+      method: "POST",
+    });
+
+    new Lambda(this, "adminCreateUser", {
+      entry: "services/app-api/handlers/users/post/createUser.js",
+      handler: "adminCreateUser",
+      path: "/users/admin-add",
+      method: "POST",
+    });
+
+    new Lambda(this, "deleteUser", {
+      entry: "services/app-api/handlers/users/post/deleteUser.js",
+    });
+
+    new Lambda(this, "updateUser", {
+      entry: "services/app-api/handlers/users/post/updateUser.js",
+      path: "/users/update/{userId}",
+      method: "POST",
+    });
+
+    new Lambda(this, "getForm", {
+      entry: "services/app-api/handlers/forms/get.js",
+      path: "/single-form/{state}/{specifiedYear}/{quarter}/{form}",
+      method: "GET",
+    });
+
+    new Lambda(this, "getStateFormList", {
+      entry: "services/app-api/handlers/forms/post/obtainFormsList.js",
+      path: "/forms/obtain-state-forms",
+      method: "POST",
+    });
+
+    new Lambda(this, "updateStateFormList", {
+      entry: "services/app-api/handlers/state-forms/post/updateStateForms.js",
+      path: "/state-forms/update",
+      method: "POST",
+    });
+
+    new Lambda(this, "generateEnrollmentTotals", {
+      entry:
+        "services/app-api/handlers/state-forms/post/generateEnrollmentTotals.js",
+      path: "/generate-enrollment-totals",
+      // async: true // TODO: figure out how to represent the equivalent of that in CDK // confirmed the lambda config matches.
+      method: "POST",
+      timeout: cdk.Duration.minutes(15),
+    });
+
+    new Lambda(this, "obtainAvailableForms", {
+      entry: "services/app-api/handlers/forms/post/obtainAvailableForms.js",
+      path: "/forms/obtainAvailableForms",
+      method: "POST",
+    });
+
     new Lambda(this, "getFormTypes", {
       entry: "services/app-api/handlers/forms/get/getFormTypes.js",
-      dynamoDbTables,
-      environment,
-      api,
       path: "/form-types",
       method: "GET",
     });
 
     new Lambda(this, "generateQuarterForms", {
       entry: "services/app-api/handlers/forms/post/generateQuarterForms.js",
-      dynamoDbTables,
-      environment,
-      api,
       path: "/generate-forms",
       method: "POST",
       timeout: cdk.Duration.minutes(15),
@@ -100,8 +121,6 @@ export class ApiStack extends cdk.NestedStack {
       {
         entry: "services/app-api/handlers/forms/post/generateQuarterForms.js",
         handler: "scheduled",
-        dynamoDbTables,
-        environment,
         timeout: cdk.Duration.minutes(15),
       }
     ).lambda;
@@ -162,9 +181,6 @@ export class ApiStack extends cdk.NestedStack {
 
     new Lambda(this, "saveForm", {
       entry: "services/app-api/handlers/forms/post/saveForm.js",
-      dynamoDbTables,
-      environment,
-      api,
       path: "/single-form/save",
       method: "POST",
     });
@@ -172,9 +188,6 @@ export class ApiStack extends cdk.NestedStack {
     new Lambda(this, "getFormTemplate", {
       entry:
         "services/app-api/handlers/form-templates/post/obtainFormTemplate.js",
-      dynamoDbTables,
-      environment,
-      api,
       path: "/form-template",
       method: "POST",
     });
@@ -182,9 +195,6 @@ export class ApiStack extends cdk.NestedStack {
     new Lambda(this, "getFormTemplateYears", {
       entry:
         "services/app-api/handlers/form-templates/post/obtainFormTemplateYears.js",
-      dynamoDbTables,
-      environment,
-      api,
       path: "/form-templates/years",
       method: "POST",
     });
@@ -192,17 +202,19 @@ export class ApiStack extends cdk.NestedStack {
     new Lambda(this, "updateCreateFormTemplate", {
       entry:
         "services/app-api/handlers/form-templates/post/updateCreateFormTemplate.js",
-      dynamoDbTables,
-      environment,
-      api,
       path: "/form-templates/add",
       method: "POST",
     });
 
     // Outputs
-    new cdk.CfnOutput(this, "ApiUrl", {
-      value: api.url,
-      description: "API Gateway URL",
+    new cdk.CfnOutput(this, "ApiGatewayRestApiUrl", {
+      value: this.api.url,
+    });
+    new cdk.CfnOutput(this, "ApiGatewayRestApiName", {
+      value: this.api.restApiName,
+    });
+    new cdk.CfnOutput(this, "Region", {
+      value: this.region,
     });
   }
 }
