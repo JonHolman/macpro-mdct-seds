@@ -3,7 +3,6 @@ import {
   NodejsFunction,
   NodejsFunctionProps,
 } from "aws-cdk-lib/aws-lambda-nodejs";
-// import { join } from "path";
 import { Duration, RemovalPolicy, Stack, CfnElement } from "aws-cdk-lib";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
@@ -24,26 +23,12 @@ interface LambdaProps extends Partial<NodejsFunctionProps> {
   handler?: string;
   timeout?: Duration;
   memorySize?: number;
-  policyStatements?: PolicyStatement[];
-  managedPolicies?: string[];
-  dynamoDbTables?: string[];
-  environment?: { [key: string]: string };
   path?: string;
   method?: string;
 }
 
-// interface DynamoDBTableProps {
-//   readonly name: string;
-//   readonly partitionKey: { name: string; type: dynamodb.AttributeType };
-//   readonly gsi?: {
-//     indexName: string;
-//     partitionKey: { name: string; type: dynamodb.AttributeType };
-//   };
-// }
-
 export class Lambda extends Construct {
   public readonly lambda: NodejsFunction;
-  public readonly logGroup: LogGroup;
 
   constructor(scope: Construct, id: string, props: LambdaProps) {
     super(scope, id);
@@ -53,15 +38,12 @@ export class Lambda extends Construct {
       handler = "main",
       timeout = Duration.seconds(6),
       memorySize = 1024,
-      policyStatements = [],
-      managedPolicies = ["service-role/AWSLambdaVPCAccessExecutionRole"],
-      dynamoDbTables = [],
       path,
       method,
       ...restProps
     } = props;
 
-    this.logGroup = new LogGroup(this, `${id}LogGroup`, {
+    const logGroup = new LogGroup(this, `${id}LogGroup`, {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
@@ -92,13 +74,14 @@ export class Lambda extends Construct {
 
     const role = new Role(this, `${id}LambdaExecutionRole`, {
       assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
-      managedPolicies: managedPolicies.map((policy) =>
-        ManagedPolicy.fromAwsManagedPolicyName(policy)
-      ),
+      managedPolicies: [
+        ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AWSLambdaVPCAccessExecutionRole"
+        ),
+      ],
       inlinePolicies: {
         LambdaPolicy: new PolicyDocument({
           statements: [
-            ...policyStatements,
             new PolicyStatement({
               effect: Effect.DENY,
               actions: ["logs:CreateLogGroup"],
@@ -149,13 +132,10 @@ export class Lambda extends Construct {
       runtime: Runtime.NODEJS_20_X,
       timeout,
       memorySize,
-      //   depsLockFilePath: join(__dirname, "../../../bun.lockb"),
-      logGroup: this.logGroup,
+      logGroup,
       role,
       bundling: commonBundlingOptions,
-
       environment,
-
       ...restProps,
     });
 
@@ -166,9 +146,7 @@ export class Lambda extends Construct {
       resource.addMethod(
         method,
         new apigateway.LambdaIntegration(this.lambda),
-        {
-          authorizationType: apigateway.AuthorizationType.IAM,
-        }
+        { authorizationType: apigateway.AuthorizationType.IAM }
       );
     }
   }
