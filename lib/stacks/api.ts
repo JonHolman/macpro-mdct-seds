@@ -6,6 +6,8 @@ import { Construct } from "constructs";
 import { Lambda } from "../local-constructs/lambda";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
+import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 
 interface ApiStackProps extends cdk.NestedStackProps {
   project: string;
@@ -56,7 +58,8 @@ export class ApiStack extends cdk.NestedStack {
     });
 
     // Functions
-    new Lambda(this, "dataConnectSource", {
+
+    const dataConnectSource = new Lambda(this, "dataConnectSource", {
       entry: "services/app-api/handlers/kafka/post/dataConnectSource.js",
       handler: "handler",
       timeout: cdk.Duration.seconds(120),
@@ -66,6 +69,30 @@ export class ApiStack extends cdk.NestedStack {
       vpcSubnets,
       securityGroups: [kafkaSecurityGroup],
     });
+
+    for (const table in this.tables) {
+      if (
+        [
+          "form-questions",
+          "auth-user",
+          "state-forms",
+          "forms",
+          "form-templates",
+          "status",
+          "states",
+          "age-ranges",
+          "form-answers",
+        ].includes(table)
+      ) {
+        dataConnectSource.lambda.addEventSource(
+          new DynamoEventSource(this.tables[table], {
+            startingPosition: StartingPosition.TRIM_HORIZON,
+            retryAttempts: 2,
+            enabled: true,
+          })
+        );
+      }
+    }
 
     new Lambda(this, "exportToExcel", {
       entry: "services/app-api/export/exportToExcel.js",
