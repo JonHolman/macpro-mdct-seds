@@ -5,6 +5,7 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import { Construct } from "constructs";
 import { Lambda } from "../local-constructs/lambda";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
 
 interface ApiStackProps extends cdk.NestedStackProps {
   project: string;
@@ -12,6 +13,7 @@ interface ApiStackProps extends cdk.NestedStackProps {
   stack: string;
   isDev: boolean;
   tables: dynamodb.Table[];
+  vpc: ec2.IVpc;
 }
 
 export class ApiStack extends cdk.NestedStack {
@@ -30,6 +32,21 @@ export class ApiStack extends cdk.NestedStack {
 
     this.tables = props.tables;
 
+    const { vpc } = props;
+
+    const vpcSubnets = { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
+
+    const kafkaSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "KafkaSecurityGroup",
+      {
+        vpc,
+        description:
+          "Security Group for streaming functions. Egress all is set by default.",
+        allowAllOutbound: true,
+      }
+    );
+
     this.api = new apigateway.RestApi(this, "ApiGatewayRestApi", {
       restApiName: `app-api-${stage}`,
       deploy: true,
@@ -39,6 +56,40 @@ export class ApiStack extends cdk.NestedStack {
     });
 
     // Functions
+    new Lambda(this, "dataConnectSource", {
+      entry: "services/app-api/handlers/kafka/post/dataConnectSource.js",
+      handler: "handler",
+      timeout: cdk.Duration.seconds(120),
+      memorySize: 2048,
+      retryAttempts: 2,
+      vpc,
+      vpcSubnets,
+      securityGroups: [kafkaSecurityGroup],
+    });
+
+    new Lambda(this, "exportToExcel", {
+      entry: "services/app-api/export/exportToExcel.js",
+      path: "/export/export-to-excel",
+      method: "POST",
+    });
+
+    new Lambda(this, "getUserById", {
+      entry: "services/app-api/handlers/users/get/getUserById.js",
+      path: "/users/{id}",
+      method: "GET",
+    });
+
+    new Lambda(this, "getUsers", {
+      entry: "services/app-api/handlers/users/get/listUsers.js",
+      path: "/users",
+      method: "GET",
+    });
+
+    new Lambda(this, "obtainUserByUsername", {
+      entry: "services/app-api/handlers/users/post/obtainUserByUsername.js",
+      path: "/users/get",
+      method: "POST",
+    });
 
     new Lambda(this, "obtainUserByEmail", {
       entry: "services/app-api/handlers/users/post/obtainUserByEmail.js",
