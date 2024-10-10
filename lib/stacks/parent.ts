@@ -23,9 +23,10 @@ export class ParentStack extends cdk.Stack {
     //   : "";
     // const indexNamespace = props.stage;
 
-    // const vpc = cdk.aws_ec2.Vpc.fromLookup(this, "Vpc", {
-    //   vpcName: props.vpcName,
-    // });
+    const vpc = cdk.aws_ec2.Vpc.fromLookup(this, "Vpc", {
+      // vpcName: props.vpcName,
+      isDefault: true,
+    });
     // const privateSubnets = sortSubnets(vpc.privateSubnets).slice(0, 3);
 
     if (!props.isDev) {
@@ -78,6 +79,7 @@ export class ParentStack extends cdk.Stack {
       ...commonProps,
       stack: "api",
       tables: dataStack.tables,
+      vpc,
     });
 
     // const apiStack = new Stacks.Api(this, "api", {
