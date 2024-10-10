@@ -11,21 +11,20 @@ interface DatabaseStackProps extends cdk.NestedStackProps {
 }
 
 export class DatabaseStack extends cdk.NestedStack {
-  public readonly tables: dynamodb.Table[];
+  public readonly tables: { [name: string]: dynamodb.Table };
 
   constructor(scope: Construct, id: string, props: DatabaseStackProps) {
     super(scope, id, props);
 
     const stage = this.node.tryGetContext("stage") || "dev";
 
-    this.tables = [
-      new DynamoDBTable(this, "AgeRanges", {
+    this.tables = {
+      "age-ranges": new DynamoDBTable(this, "AgeRanges", {
         stage,
         name: "age-ranges",
         partitionKey: { name: "ageRange", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "FormAnswers", {
+      "form-answers": new DynamoDBTable(this, "FormAnswers", {
         stage,
         name: "form-answers",
         partitionKey: {
@@ -40,26 +39,22 @@ export class DatabaseStack extends cdk.NestedStack {
           },
         },
       }).table,
-
-      new DynamoDBTable(this, "FormQuestions", {
+      "form-questions": new DynamoDBTable(this, "FormQuestions", {
         stage,
         name: "form-questions",
         partitionKey: { name: "question", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "FormTemplates", {
+      "form-templates": new DynamoDBTable(this, "FormTemplates", {
         stage,
         name: "form-templates",
         partitionKey: { name: "year", type: dynamodb.AttributeType.NUMBER },
       }).table,
-
-      new DynamoDBTable(this, "Forms", {
+      forms: new DynamoDBTable(this, "Forms", {
         stage,
         name: "forms",
         partitionKey: { name: "form", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "StateForms", {
+      "state-forms": new DynamoDBTable(this, "StateForms", {
         stage,
         name: "state-forms",
         partitionKey: {
@@ -67,37 +62,32 @@ export class DatabaseStack extends cdk.NestedStack {
           type: dynamodb.AttributeType.STRING,
         },
       }).table,
-
-      new DynamoDBTable(this, "States", {
+      states: new DynamoDBTable(this, "States", {
         stage,
         name: "states",
         partitionKey: { name: "state_id", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "Status", {
+      status: new DynamoDBTable(this, "Status", {
         stage,
         name: "status",
         partitionKey: { name: "status", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "AuthUser", {
+      "auth-user": new DynamoDBTable(this, "AuthUser", {
         stage,
         name: "auth-user",
         partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "AuthUserRoles", {
+      "auth-user-roles": new DynamoDBTable(this, "AuthUserRoles", {
         stage,
         name: "auth-user-roles",
         partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       }).table,
-
-      new DynamoDBTable(this, "AuthUserStates", {
+      "auth-user-states": new DynamoDBTable(this, "AuthUserStates", {
         stage,
         name: "auth-user-states",
         partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       }).table,
-    ];
+    };
 
     // Region Output
     new cdk.CfnOutput(this, "Region", { value: this.region });

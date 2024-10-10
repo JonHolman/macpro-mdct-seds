@@ -12,13 +12,13 @@ interface ApiStackProps extends cdk.NestedStackProps {
   stage: string;
   stack: string;
   isDev: boolean;
-  tables: dynamodb.Table[];
+  tables: { [name: string]: dynamodb.Table };
   vpc: ec2.IVpc;
 }
 
 export class ApiStack extends cdk.NestedStack {
   public readonly shortStackName: string;
-  public readonly tables: dynamodb.Table[];
+  public readonly tables: { [name: string]: dynamodb.Table };
   public readonly api: apigateway.RestApi;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {

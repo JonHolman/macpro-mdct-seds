@@ -55,7 +55,7 @@ export class Lambda extends Construct {
       BOOTSTRAP_BROKER_STRING_TLS: "TODO", // brokerString,
       STAGE: stage,
       stage,
-      ...(Stack.of(this) as ApiStack).tables.reduce(
+      ...Object.values((Stack.of(this) as ApiStack).tables).reduce(
         (acc, table) => {
           const currentTable = Stack.of(table)
             .getLogicalId(table.node.defaultChild as CfnElement)
@@ -104,7 +104,7 @@ export class Lambda extends Construct {
     );
 
     // TOOD: instead of this being one policy per table, put all of the tables in one policy in the resources key
-    (Stack.of(this) as ApiStack).tables.forEach((table) => {
+    Object.values((Stack.of(this) as ApiStack).tables).forEach((table) => {
       role.addToPolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
