@@ -19,7 +19,6 @@ import { ApiStack } from "../../stacks/api";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 
 interface LambdaProps extends Partial<NodejsFunctionProps> {
-  entry: string;
   handler?: string;
   timeout?: Duration;
   memorySize?: number;
@@ -34,7 +33,6 @@ export class Lambda extends Construct {
     super(scope, id);
 
     const {
-      entry,
       handler = "main",
       timeout = Duration.seconds(6),
       memorySize = 1024,
@@ -54,7 +52,7 @@ export class Lambda extends Construct {
     console.log("TODO: parent:", Stack.of(this).nestedStackParent);
 
     const environment = {
-      // BOOTSTRAP_BROKER_STRING_TLS: brokerString,
+      BOOTSTRAP_BROKER_STRING_TLS: "TODO", // brokerString,
       STAGE: stage,
       stage,
       ...(Stack.of(this) as ApiStack).tables.reduce(
@@ -127,7 +125,6 @@ export class Lambda extends Construct {
 
     this.lambda = new NodejsFunction(this, id, {
       functionName: `${(Stack.of(this) as ApiStack).shortStackName}-${id}`,
-      entry,
       handler,
       runtime: Runtime.NODEJS_20_X,
       timeout,
