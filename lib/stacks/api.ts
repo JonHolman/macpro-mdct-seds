@@ -8,6 +8,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { LogGroup } from "aws-cdk-lib/aws-logs";
 
 interface ApiStackProps extends cdk.NestedStackProps {
   project: string;
@@ -49,11 +50,53 @@ export class ApiStack extends cdk.NestedStack {
       }
     );
 
+    const logGroup = new LogGroup(this, "ApiAccessLogs", {
+      logGroupName: `/aws/api-gateway/${stage}-app-api`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     this.api = new apigateway.RestApi(this, "ApiGatewayRestApi", {
-      restApiName: `app-api-${stage}`,
+      restApiName: `${stage}-app-api`,
       deploy: true,
       deployOptions: {
         stageName: stage,
+        tracingEnabled: true,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+        metricsEnabled: false,
+        throttlingBurstLimit: 5000,
+        throttlingRateLimit: 10000.0,
+        cachingEnabled: false,
+        cacheTtl: cdk.Duration.seconds(300),
+        cacheDataEncrypted: false,
+        accessLogDestination: new apigateway.LogGroupLogDestination(logGroup),
+        accessLogFormat: apigateway.AccessLogFormat.custom(
+          "requestId: $context.requestId, ip: $context.identity.sourceIp, " +
+            "caller: $context.identity.caller, user: $context.identity.user, " +
+            "requestTime: $context.requestTime, httpMethod: $context.httpMethod, " +
+            "resourcePath: $context.resourcePath, status: $context.status, " +
+            "protocol: $context.protocol, responseLength: $context.responseLength"
+        ),
+      },
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+      },
+    });
+
+    this.api.addGatewayResponse("Default4XXResponse", {
+      type: apigateway.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": "'*'",
+        "Access-Control-Allow-Headers": "'*'",
+      },
+    });
+
+    this.api.addGatewayResponse("Default5XXResponse", {
+      type: apigateway.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": "'*'",
+        "Access-Control-Allow-Headers": "'*'",
       },
     });
 
