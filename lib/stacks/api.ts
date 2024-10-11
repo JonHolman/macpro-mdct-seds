@@ -57,7 +57,36 @@ export class ApiStack extends cdk.NestedStack {
       },
     });
 
-    // Functions
+    new Lambda(this, "ForceKafkaSync", {
+      entry: "services/app-api/handlers/kafka/get/forceKafkaSync.js",
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 3008, // TODO: 3072,
+    });
+
+    const postKafkaData = new Lambda(this, "postKafkaData", {
+      entry: "services/app-api/handlers/kafka/post/postKafkaData.js",
+      handler: "handler",
+      timeout: cdk.Duration.seconds(120),
+      memorySize: 2048,
+      retryAttempts: 2,
+      vpc,
+      vpcSubnets,
+      securityGroups: [kafkaSecurityGroup],
+    });
+
+    for (const table in this.tables) {
+      let startingPosition = StartingPosition.TRIM_HORIZON;
+      if (["auth-user-roles", "auth-user-states"].includes(table)) {
+        startingPosition = StartingPosition.LATEST;
+      }
+      postKafkaData.lambda.addEventSource(
+        new DynamoEventSource(this.tables[table], {
+          startingPosition,
+          retryAttempts: 2,
+          enabled: true,
+        })
+      );
+    }
 
     const dataConnectSource = new Lambda(this, "dataConnectSource", {
       entry: "services/app-api/handlers/kafka/post/dataConnectSource.js",
